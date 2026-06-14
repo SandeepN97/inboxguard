@@ -1,0 +1,55 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+  "output": {
+    "filePath": ".repomix/inboxguard-context.md",
+    "style": "markdown",
+    "headerText": "InboxGuard — full codebase packed for AI context.\nStart with CLAUDE.md (conventions) and docs/adr/ (every architectural decision).",
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "topFilesLength": 20,
+    "showLineNumbers": true,
+    "copyToClipboard": false
+  },
+  "include": [
+    "CLAUDE.md",
+    "dangerfile.ts",
+    "backend/pom.xml",
+    "backend/src/**/*.java",
+    "backend/src/**/*.sql",
+    "backend/src/**/*.yml",
+    "frontend/package.json",
+    "frontend/tsconfig.json",
+    "frontend/tailwind.config.ts",
+    "frontend/eslint.config.js",
+    "frontend/.prettierrc",
+    "frontend/components.json",
+    "frontend/src/**/*.ts",
+    "frontend/src/**/*.tsx",
+    "frontend/src/**/*.css",
+    "frontend/server.cjs",
+    "docs/adr/**/*.md",
+    "docs/architecture/**",
+    ".github/workflows/**",
+    ".gitleaks.toml",
+    ".semgrep/**",
+    ".aider.conf.yml",
+    "serena.yml"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "inbox-guard-scaffold/",
+      ".repomix/",
+      ".aider.chat.history.md",
+      ".aider.tags.cache.v3/",
+      "node_modules/",
+      "target/",
+      "dist/",
+      ".claude/projects/"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  }
+}

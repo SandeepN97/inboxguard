@@ -1,0 +1,47 @@
+# Serena — Semantic code intelligence via Language Server Protocol
+# GitHub: https://github.com/oraios/serena
+# Install: pip install serena   or   use via uvx (see .claude/settings.json)
+#
+# Serena exposes LSP-backed MCP tools to Claude Code:
+#   find_symbol, get_symbol_signature, get_references, search_in_files,
+#   get_type_definition, get_implementations, rename_symbol, etc.
+#
+# This replaces grep-based symbol search with semantic precision —
+# "find all implementations of GmailPort" returns only actual implementations,
+# not string matches.
+
+project_root: .
+
+# Language servers — Serena delegates to these for semantic analysis.
+# Each server must be installed separately (not managed by this file).
+languages:
+  - name: java
+    # Backend — hexagonal architecture under backend/src/main/java/com/inboxguard/
+    # Requires: Eclipse JDT Language Server (jdtls)
+    #   brew install jdtls  OR  download from https://github.com/eclipse-jdtls/eclipse.jdt.ls
+    root: backend
+    language_server:
+      command: jdtls
+      args:
+        - "-data"
+        - ".serena/jdtls-workspace"
+
+  - name: typescript
+    # Frontend — React 18 + TypeScript under frontend/src/
+    # Requires: typescript-language-server
+    #   npm install -g typescript-language-server typescript
+    root: frontend
+    language_server:
+      command: typescript-language-server
+      args:
+        - "--stdio"
+
+# Directories Serena should index (mirrors .aiderignore exclusions)
+exclude:
+  - inbox-guard-scaffold/
+  - target/
+  - node_modules/
+  - dist/
+  - .repomix/
+  - .aider.tags.cache.v3/
+  - .serena/

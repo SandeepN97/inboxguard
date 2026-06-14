@@ -1,0 +1,8 @@
+npx lint-staged
+
+if command -v gitleaks &> /dev/null; then
+  gitleaks protect --staged --config .gitleaks.toml --exit-code 1
+else
+  echo "⚠️  gitleaks not found — install: brew install gitleaks"
+  echo "   Secret scanning skipped. CI will still block on push."
+fi

@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: inboxguard
+  threads:
+    virtual:
+      enabled: true # Project Loom — non-blocking Gmail I/O without reactive overhead
+
+server:
+  port: 8080
+  error:
+    include-message: never # Never leak exception messages to HTTP responses
+    include-stacktrace: never
+    include-binding-errors: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

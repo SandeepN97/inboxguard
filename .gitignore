@@ -1,0 +1,63 @@
+# Java / Maven
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot
+*.pid
+*.pid.lock
+
+# Node.js
+node_modules/
+.npm/
+npm-debug.log*
+*.log
+
+# Frontend build
+frontend/dist/
+frontend/.vite/
+
+# Environment & credentials — NEVER commit these
+.env
+.env.*
+.env.local
+credentials.json
+*.p12
+*.keystore
+google-credentials.json
+
+# IDE
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+*.iws
+.DS_Store
+*.swp
+
+# Security scan outputs
+trivy-results.sarif
+gitleaks-report.json
+semgrep-results.sarif
+report_html.html
+report_json.json
+report_md.md
+
+# Structurizr cache
+docs/architecture/.structurizr/
+
+# H2 database files (if file-mode ever used locally)
+*.mv.db
+*.trace.db
+
+# repomix — packed codebase output (generated on demand, not committed)
+.repomix/
+
+# aider — AI pair programming artifacts
+.aider.chat.history.md
+.aider.tags.cache.v3/
+
+# Serena — LSP workspace cache
+.serena/

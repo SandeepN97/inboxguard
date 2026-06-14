@@ -1,0 +1,32 @@
+{
+  "name": "inboxguard",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "danger:local": "danger local --dangerfile dangerfile.ts",
+    "pack": "repomix",
+    "pack:clip": "repomix --copy"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "danger": "^13.0.7",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "repomix": "^0.3.0"
+  },
+  "lint-staged": {
+    "frontend/src/**/*.{ts,tsx}": [
+      "bash -c 'cd frontend && node_modules/.bin/eslint --fix --max-warnings 0 \"$@\"' --",
+      "bash -c 'cd frontend && node_modules/.bin/prettier --write \"$@\"' --"
+    ],
+    "frontend/src/**/*.css": [
+      "bash -c 'cd frontend && node_modules/.bin/prettier --write \"$@\"' --"
+    ],
+    "**/*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

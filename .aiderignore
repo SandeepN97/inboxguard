@@ -1,0 +1,34 @@
+# Aider ignore file — keeps the repo map focused on source code
+# Syntax: same as .gitignore
+
+# Prior-session scaffold (not canonical — see CLAUDE.md)
+inbox-guard-scaffold/
+
+# AI tool artifacts
+.repomix/
+.aider.chat.history.md
+.aider.tags.cache.v3/
+
+# Build outputs
+target/
+node_modules/
+dist/
+frontend/.vite/
+
+# Security scan outputs (not source code)
+trivy-results.sarif
+semgrep-results.sarif
+gitleaks-report.json
+report_html.html
+
+# Architecture cache
+docs/architecture/.structurizr/
+
+# IDE and OS
+.idea/
+.DS_Store
+
+# Credentials — aider should never touch these
+credentials.json
+.env
+.env.*

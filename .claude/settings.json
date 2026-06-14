@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": []
+  },
+  "mcpServers": {
+    "serena": {
+      "command": "uvx",
+      "args": ["serena", "."],
+      "cwd": "/Users/nishabhattarai/IdeaProjects/inboxguard",
+      "env": {}
+    }
+  }
+}

@@ -1,0 +1,7 @@
+# Trivy vulnerability ignore file
+# Format: CVE-ID  (one per line, with optional comment)
+# Only add entries after documented risk-acceptance review.
+# Document: CVE, reason for ignore, date, reviewer.
+#
+# Example (do not uncomment without review):
+# CVE-2023-XXXXX  # Dev-only H2 console — not exposed in prod profile

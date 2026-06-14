@@ -1,0 +1,47 @@
+# Aider — AI pair programming configuration for InboxGuard
+# Install: pip install aider-chat
+# Run:     aider  (from project root, with ANTHROPIC_API_KEY in env)
+
+# Model — Claude Sonnet via Anthropic API
+model: claude-sonnet-4-6
+
+# Editor model for simpler tasks (autocomplete, small edits)
+editor-model: claude-haiku-4-5-20251001
+
+# --- Commit behaviour ---
+# Manual commits only — Husky enforces Conventional Commits on commit-msg hook.
+# Aider auto-commits would bypass the hook and skip the format check.
+auto-commits: false
+dirty-commits: false
+attribute-author: false
+attribute-committer: false
+
+# --- Context ---
+# CLAUDE.md is the project's source of truth for conventions, stack decisions,
+# and the hexagonal architecture dependency rule. Aider reads it before every session.
+read:
+  - CLAUDE.md
+
+# Repo map budget — aider builds a tree-sitter symbol map for cross-file awareness.
+# 2048 tokens is enough for the current codebase; raise to 4096 if context gets thin.
+map-tokens: 2048
+map-refresh: auto
+map-multiplier-no-files: 2
+
+# --- Quality gates ---
+# Lint runs after every file edit so aider self-corrects TypeScript/ESLint violations.
+lint: true
+lint-cmd:
+  typescript: "cd frontend && npx eslint src --max-warnings 0"
+
+# Uncomment once the test suite is wired up — aider will fix failing tests automatically.
+# test: true
+# test-cmd: "cd backend && mvn test -q --no-transfer-progress"
+
+# --- History & cache ---
+chat-history-file: .aider.chat.history.md
+restore-chat-history: false # Start each session fresh; history file is for audit only
+
+# --- Output ---
+pretty: true
+stream: true

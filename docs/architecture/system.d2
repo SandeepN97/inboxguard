@@ -1,0 +1,85 @@
+# InboxGuard — D2 System Architecture
+# Render: d2 system.d2 system.svg  (brew install d2)
+# Use D2 for this diagram because Mermaid's auto-layout produces crossed edges
+# on the hexagonal layer breakdown — D2's ELK engine handles it cleanly.
+
+direction: right
+
+user: Admin User {
+  shape: person
+  style.fill: "#08427B"
+  style.font-color: "#ffffff"
+}
+
+inboxguard: InboxGuard {
+  style.fill: "#f8fafc"
+  style.stroke: "#cbd5e1"
+
+  frontend: React Frontend {
+    style.fill: "#dbeafe"
+    style.stroke: "#3b82f6"
+
+    label: |md
+      **React 18 · TypeScript · Vite**
+      Tailwind CSS + shadcn/ui
+      Motion (animations) · GSAP (timelines)
+      TanStack Query (server state)
+      Zustand (UI state)
+      Express + Helmet.js (prod server)
+    |
+  }
+
+  backend: Spring Boot API {
+    style.fill: "#dcfce7"
+    style.stroke: "#16a34a"
+
+    web: Web Layer {
+      label: "REST Controllers\n+ DTOs"
+      style.fill: "#fef9c3"
+    }
+
+    app: Application Layer {
+      label: "Use Case Services\n+ Port Interfaces"
+      style.fill: "#e0f2fe"
+    }
+
+    domain: Domain {
+      label: "SenderRule · CleanupRun\nCleanupResult\n(pure Java 21 records)"
+      style.fill: "#f0fdf4"
+    }
+
+    gmail_adapter: Gmail Adapter {
+      label: "GmailAdapter\nimplements GmailPort\n(only file importing\ngoogle-api-services-gmail)"
+      style.fill: "#fce7f3"
+    }
+
+    persistence: Persistence Adapter {
+      label: "JPA Entities + Mappers\nSpring Data repos\nFlyway migrations"
+      style.fill: "#fce7f3"
+    }
+
+    web -> app: "delegates to\ninbound ports"
+    app -> domain: "uses domain\nmodels"
+    app -> gmail_adapter: "via GmailPort\n(outbound port)"
+    app -> persistence: "via Repository\nports"
+  }
+
+  db: PostgreSQL 16 {
+    shape: cylinder
+    style.fill: "#f1f5f9"
+    style.stroke: "#64748b"
+    label: "sender_rules\ncleanup_runs\ncleanup_run_results\noauth_tokens (AES-256-GCM)"
+  }
+
+  frontend -> backend.web: "REST / JSON\nHTTPS"
+  backend.persistence -> db: "JDBC\nHikariCP"
+}
+
+gmail: Gmail API {
+  style.fill: "#fee2e2"
+  style.stroke: "#dc2626"
+  label: "Google · OAuth2\nmessages.list\nmessages.batchModify\n250 units/sec quota"
+}
+
+user -> inboxguard.frontend: "HTTPS"
+inboxguard.backend.gmail_adapter -> gmail: "HTTPS · OAuth2\nSpring Retry\n(exp backoff + jitter)"

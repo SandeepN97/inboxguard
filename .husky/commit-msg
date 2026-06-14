@@ -1,0 +1,15 @@
+commit_regex='^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,100}$'
+commit_msg=$(cat "$1")
+
+if ! echo "$commit_msg" | grep -qE "$commit_regex"; then
+  echo "❌ Commit message does not match Conventional Commits format."
+  echo ""
+  echo "   Expected: type(scope): short description"
+  echo "   Examples:"
+  echo "     feat(cleanup): add dry-run mode toggle to dashboard"
+  echo "     fix(gmail): handle 403 userRateLimitExceeded in adapter"
+  echo "     docs(adr): record ADR-006 for token encryption strategy"
+  echo ""
+  echo "   Valid types: feat fix docs style refactor test chore perf ci build revert"
+  exit 1
+fi

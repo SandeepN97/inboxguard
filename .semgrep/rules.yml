@@ -1,0 +1,69 @@
+rules:
+  # ── Java rules ─────────────────────────────────────────────────────────────
+
+  - id: inboxguard-gmail-import-outside-adapter
+    pattern: import com.google.api.services.gmail.$X;
+    message: >
+      Gmail API types must only appear in infrastructure/gmail/.
+      All other layers depend on GmailPort (application/port/out/) — see ADR-002.
+    languages: [java]
+    severity: ERROR
+    paths:
+      exclude:
+        - "**/infrastructure/gmail/**"
+
+  - id: inboxguard-no-hardcoded-encryption-key
+    patterns:
+      - pattern: |
+          @Value("${gmail.token-encryption-key:$DEFAULT}")
+          ...
+      - metavariable-regex:
+          metavariable: $DEFAULT
+          regex: "^[A-Za-z0-9+/=]{8,}"
+    message: >
+      Hard-coded default for GMAIL_TOKEN_ENCRYPTION_KEY. The application must
+      fail-fast if this env var is absent — no fallback default (see ADR-003).
+    languages: [java]
+    severity: ERROR
+
+  - id: inboxguard-jpa-in-domain
+    patterns:
+      - pattern: import jakarta.persistence.$X;
+    message: >
+      JPA annotation imported in domain package. Domain models must be pure Java
+      records with no persistence annotations (see ADR-002).
+    languages: [java]
+    severity: ERROR
+    paths:
+      include:
+        - "**/domain/**"
+
+  - id: inboxguard-no-printStackTrace
+    pattern: $E.printStackTrace(...)
+    message: >
+      printStackTrace() leaks stack frames to stdout. Use a logger instead:
+      log.error("message", $E).
+    languages: [java]
+    severity: WARNING
+
+  # ── TypeScript / React rules ────────────────────────────────────────────────
+
+  - id: inboxguard-no-hardcoded-api-url
+    patterns:
+      - pattern: fetch("http://localhost:8080/...")
+      - pattern: axios.get("http://localhost:8080/...")
+      - pattern: axios.post("http://localhost:8080/...")
+    message: >
+      Hard-coded localhost API URL. Use the Axios client from src/api/client.ts
+      which reads VITE_API_URL at build time.
+    languages: [typescript]
+    severity: WARNING
+
+  - id: inboxguard-no-console-log-in-src
+    pattern: console.log(...)
+    message: Remove console.log before merging. Use react-query devtools for debugging.
+    languages: [typescript]
+    severity: WARNING
+    paths:
+      include:
+        - "frontend/src/**"
