@@ -1,44 +1,22 @@
-import { motion } from 'motion/react'
-import { Layout } from '@/components/layout/Layout'
-import { StatsBar } from '@/components/dashboard/StatsBar'
-import { RunControls, LiveModeBanner } from '@/components/dashboard/RunControls'
-import { SenderRulesTable } from '@/components/dashboard/SenderRulesTable'
-import { RunHistory } from '@/components/dashboard/RunHistory'
+import { Shield } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { Landing } from '@/pages/Landing'
+import { Dashboard } from '@/pages/Dashboard'
 
-const fadeUp = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.3, ease: 'easeOut' },
+function LoadingScreen() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background">
+      <Shield className="h-8 w-8 animate-pulse text-primary" />
+      <p className="text-sm text-muted-foreground">Loading…</p>
+    </div>
+  )
 }
 
 export default function App() {
-  return (
-    <Layout>
-      <div className="flex h-14 shrink-0 items-center border-b px-6">
-        <h1 className="text-sm font-semibold">Dashboard</h1>
-      </div>
+  const { data: user, isLoading, isError } = useAuth()
+  const isSigningIn = new URLSearchParams(window.location.search).has('signing_in')
 
-      <div className="flex flex-1 flex-col gap-6 overflow-auto p-6">
-        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0 }}>
-          <StatsBar />
-        </motion.div>
-
-        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.06 }}>
-          <LiveModeBanner />
-        </motion.div>
-
-        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}>
-          <RunControls />
-        </motion.div>
-
-        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.16 }}>
-          <SenderRulesTable />
-        </motion.div>
-
-        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.22 }}>
-          <RunHistory />
-        </motion.div>
-      </div>
-    </Layout>
-  )
+  if (isLoading) return <LoadingScreen />
+  if (isError || !user) return <Landing isSigningIn={isSigningIn} />
+  return <Dashboard user={user} />
 }
