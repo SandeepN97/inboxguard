@@ -1,37 +1,44 @@
 import { motion } from 'motion/react'
-import { gsap } from 'gsap'
-import { useEffect, useRef } from 'react'
+import { Layout } from '@/components/layout/Layout'
+import { StatsBar } from '@/components/dashboard/StatsBar'
+import { RunControls, LiveModeBanner } from '@/components/dashboard/RunControls'
+import { SenderRulesTable } from '@/components/dashboard/SenderRulesTable'
+import { RunHistory } from '@/components/dashboard/RunHistory'
+
+const fadeUp = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3, ease: 'easeOut' },
+}
 
 export default function App() {
-  const badgeRef = useRef<HTMLDivElement>(null)
-
-  // GSAP for timeline-based entrance — Motion handles component transitions
-  useEffect(() => {
-    if (!badgeRef.current) return
-    gsap.fromTo(
-      badgeRef.current,
-      { scale: 0.8, opacity: 0 },
-      { scale: 1, opacity: 1, duration: 0.6, ease: 'back.out(1.7)', delay: 0.4 }
-    )
-  }, [])
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <motion.main
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="text-center"
-      >
-        <div ref={badgeRef} className="mb-4 inline-block rounded-full bg-primary/10 px-4 py-1.5">
-          <span className="text-sm font-medium text-primary">Gmail Admin Tool</span>
-        </div>
+    <Layout>
+      <div className="flex h-14 shrink-0 items-center border-b px-6">
+        <h1 className="text-sm font-semibold">Dashboard</h1>
+      </div>
 
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">InboxGuard</h1>
-        <p className="mt-3 text-muted-foreground">
-          Automated Gmail inbox cleanup — dashboard loading…
-        </p>
-      </motion.main>
-    </div>
+      <div className="flex flex-1 flex-col gap-6 overflow-auto p-6">
+        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0 }}>
+          <StatsBar />
+        </motion.div>
+
+        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.06 }}>
+          <LiveModeBanner />
+        </motion.div>
+
+        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}>
+          <RunControls />
+        </motion.div>
+
+        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.16 }}>
+          <SenderRulesTable />
+        </motion.div>
+
+        <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.22 }}>
+          <RunHistory />
+        </motion.div>
+      </div>
+    </Layout>
   )
 }
