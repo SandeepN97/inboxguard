@@ -103,7 +103,7 @@ brew install jdtls d2
 ### 1 — Clone and install
 
 ```bash
-git clone https://github.com/<your-username>/inboxguard.git
+git clone https://github.com/SandeepN97/inboxguard.git
 cd inboxguard
 npm install                   # root: Husky, Danger JS, repomix
 cd frontend && npm install    # React, Tailwind, Motion, GSAP, ESLint
