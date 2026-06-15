@@ -1,14 +1,13 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { Shield, ArrowRight, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Shield, Loader2, Lock, Eye, CheckCircle2 } from 'lucide-react'
 import { InboxDemo } from '@/components/landing/InboxDemo'
 import { Steps } from '@/components/landing/Steps'
 import { FeatureCards } from '@/components/landing/FeatureCards'
 
-function GoogleIcon() {
+function GoogleLogo() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden="true">
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
         fill="#4285F4"
@@ -28,6 +27,33 @@ function GoogleIcon() {
     </svg>
   )
 }
+
+function GoogleSignInButton({
+  onClick,
+  loading,
+  label = 'Continue with Google',
+}: {
+  onClick: () => void
+  loading: boolean
+  label?: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="group flex h-12 items-center gap-3 rounded-lg border border-[#dadce0] bg-white px-6 text-sm font-medium text-[#3c4043] shadow-sm transition-all hover:border-[#c6c9cc] hover:bg-[#f8faff] hover:shadow-md active:shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {loading ? <Loader2 className="h-5 w-5 animate-spin text-[#4285F4]" /> : <GoogleLogo />}
+      <span>{loading ? 'Connecting…' : label}</span>
+    </button>
+  )
+}
+
+const TRUST = [
+  { icon: Lock, text: 'No credit card' },
+  { icon: Shield, text: 'OAuth2 protected' },
+  { icon: Eye, text: 'Read-only until you run' },
+]
 
 const STATS = [
   { value: '10k+', label: 'Emails cleaned' },
@@ -54,10 +80,18 @@ export function Landing({ isSigningIn = false }: { isSigningIn?: boolean }) {
               Blog
             </Link>
           </nav>
-          <Button size="sm" onClick={handleSignIn} disabled={isSigningIn}>
-            {isSigningIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-            Sign in with Google
-          </Button>
+          <button
+            onClick={handleSignIn}
+            disabled={isSigningIn}
+            className="flex h-9 items-center gap-2 rounded-md border border-[#dadce0] bg-white px-4 text-sm font-medium text-[#3c4043] shadow-sm transition-all hover:bg-[#f8faff] hover:shadow-md disabled:opacity-60"
+          >
+            {isSigningIn ? (
+              <Loader2 className="h-4 w-4 animate-spin text-[#4285F4]" />
+            ) : (
+              <GoogleLogo />
+            )}
+            Sign in
+          </button>
         </div>
       </header>
 
@@ -87,15 +121,19 @@ export function Landing({ isSigningIn = false }: { isSigningIn?: boolean }) {
               notifications, marketing blasts. Set rules once, run cleanup whenever you want.
             </p>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" onClick={handleSignIn} disabled={isSigningIn} className="gap-2">
-                {isSigningIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-                Connect Gmail — it's free
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <p className="self-center text-xs text-muted-foreground">
-                No credit card · OAuth2 · Read-only until you run
-              </p>
+            <div className="flex flex-col gap-3">
+              <GoogleSignInButton onClick={handleSignIn} loading={isSigningIn} />
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                {TRUST.map(({ icon: Icon, text }) => (
+                  <span
+                    key={text}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                  >
+                    <Icon className="h-3.5 w-3.5 text-emerald-500" />
+                    {text}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Stats */}
@@ -136,10 +174,17 @@ export function Landing({ isSigningIn = false }: { isSigningIn?: boolean }) {
           <p className="mt-3 text-muted-foreground">
             Connect in 30 seconds. Start with a dry run — zero risk.
           </p>
-          <Button size="lg" onClick={handleSignIn} disabled={isSigningIn} className="mt-8 gap-2">
-            {isSigningIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-            Get started with Google
-          </Button>
+          <div className="mt-8 flex flex-col items-center gap-3">
+            <GoogleSignInButton
+              onClick={handleSignIn}
+              loading={isSigningIn}
+              label="Get started with Google"
+            />
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              Free forever · no credit card needed
+            </div>
+          </div>
         </motion.div>
       </section>
 
