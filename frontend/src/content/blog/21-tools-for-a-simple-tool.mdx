@@ -6,101 +6,102 @@ export const frontmatter = {
     "Why does a personal inbox tool have Trivy, CodeQL, Semgrep, OWASP ZAP, and Danger JS? Because learning security tooling on a low-stakes project is the only way to actually understand it.",
 }
 
+import { ToolsShowcase } from "@/components/blog/ToolsShowcase"
+
 When I listed the tools integrated into InboxGuard, a few people asked if I was joking.
 
 21 tools. For an app that deletes emails.
 
 The answer isn't "this project needs them." The answer is: **I needed to learn them, and this was the safest place to do it.**
 
-## The principle
+Security tooling has a steep learning curve. Misconfigured SARIF uploads, false-positive suppression, custom Semgrep rules, OWASP ZAP authentication — these things take time to figure out. The cost of figuring them out on a production system is downtime and incidents. On a Gmail cleanup tool, the cost is nothing. The perfect environment to build the muscle.
 
-Security tooling has a steep learning curve. Misconfigured SARIF uploads, false-positive suppression, custom Semgrep rules, OWASP ZAP authentication — these things take time to figure out. The cost of figuring them out on a production system is downtime, incidents, and stressed engineers.
+## All 21 tools, verified
 
-On a Gmail cleanup tool, the cost is: nothing. The perfect environment to build the muscle.
+Every tool below is actually wired up — config file path included. Click any card to expand it.
 
-## The six categories
+<ToolsShowcase />
 
-### 1. Vulnerability scanning (Trivy)
+## How they connect
 
-Trivy scans three surfaces:
+The layering is the point. Each layer catches what the previous one misses.
 
-- **Filesystem** — `pom.xml`, `package.json`, `package-lock.json` for known CVEs
-- **Secrets** — hardcoded tokens, API keys, passwords
-- **IaC** — Docker and CI configuration misconfigurations
+### Layer 1 — at the keyboard
 
-Output goes to GitHub's Security tab as SARIF. Every dependency bump triggers a re-scan.
+**ESLint** and **Prettier** run in the editor and on save. They catch the most obvious issues before you even think about committing — unused imports, shadowed variables, inconsistent formatting. This is the cheapest possible feedback loop.
 
-### 2. Secret detection (Gitleaks)
+### Layer 2 — at the commit boundary
 
-Gitleaks runs as a pre-commit hook *and* in CI. The pre-commit hook catches secrets before they ever hit the network. CI catches anything that slipped through `--no-verify`.
+**Husky** manages the Git hooks. Two hooks run on every `git commit`:
 
-InboxGuard has two custom rules in `.gitleaks.toml`:
+- `pre-commit`: runs **ESLint** (with `--max-warnings 0`), **Prettier** (check mode), and **Gitleaks** (secret scanning)
+- `commit-msg`: enforces **Conventional Commits** format — `feat:`, `fix:`, `chore:`, etc.
 
-```toml
-[[rules]]
-id = "gmail-authorized-user-credential"
-regex = '"type":\s*"authorized_user"'
-severity = "CRITICAL"
+This is bypassable with `--no-verify`, but that's intentional. You shouldn't be blocked from committing when you need to checkpoint work in progress. The next layers still catch anything that slips through.
 
-[[rules]]
-id = "gmail-token-encryption-key-hardcoded"
-regex = 'GMAIL_TOKEN_ENCRYPTION_KEY\s*[=:]\s*[A-Za-z0-9+/]{20,}'
-severity = "CRITICAL"
-```
+### Layer 3 — in CI on every push
 
-These are the two secrets that would actually hurt if committed — a downloaded `credentials.json` and a hardcoded AES key.
+Four parallel jobs:
 
-### 3. Static analysis — semantic (CodeQL)
+| Job | Tools | What it catches |
+|---|---|---|
+| `backend` | Maven, JUnit | Compilation errors, unit test failures, ArchUnit violations |
+| `frontend` | Node, ESLint, TypeScript | Type errors, lint violations, build failures |
+| `security` | **Trivy** + **Semgrep** + **Reviewdog** | CVEs in deps, custom rule violations, inline PR comments |
+| `analyze` | **CodeQL** | Semantic data-flow vulnerabilities across Java + TypeScript |
 
-CodeQL builds a database of the codebase and runs dataflow queries across it. It can find things like: user input that reaches a SQL query without sanitization, even across multiple method calls and class boundaries.
+**Trivy** scans three surfaces: `pom.xml`/`package.json` for CVEs, the filesystem for hardcoded secrets, and the CI config for IaC misconfigurations. Output is uploaded as SARIF to GitHub's Security tab.
 
-It runs on both Java and TypeScript in a matrix job.
+**Semgrep** runs six custom project rules — the ones that enforce InboxGuard's specific invariants, like "Gmail SDK types must not appear outside `GmailAdapter`" and "no hardcoded AES keys."
 
-### 4. Static analysis — fast (Semgrep)
+**Reviewdog** picks up both ESLint and Semgrep output and posts them as inline comments on the PR diff rather than just failing the build. Much easier to act on.
 
-Semgrep complements CodeQL. It's faster and easier to write custom rules for. InboxGuard has six project-specific rules:
+**CodeQL** builds a graph of the entire codebase and runs dataflow queries. It can trace a tainted input from an HTTP controller parameter through a service layer and into a database call — across method boundaries and class hierarchies. Semgrep can't do this.
 
-| Rule | What it catches |
-|---|---|
-| `gmail-import-outside-adapter` | Gmail SDK imported outside `GmailAdapter` |
-| `jpa-in-domain` | JPA annotations on domain classes |
-| `no-hardcoded-encryption-key` | AES key constants in source |
-| `no-printStackTrace` | `e.printStackTrace()` calls |
-| `no-hardcoded-api-url` | `http://localhost` in production code |
-| `no-console-log-in-src` | `console.log` in frontend src |
+### Layer 4 — the live application
 
-Semgrep also runs Reviewdog, which posts inline PR comments for findings rather than just failing the build.
+**OWASP ZAP** runs in its own workflow. It:
 
-### 5. Dynamic analysis (OWASP ZAP)
+1. Starts a PostgreSQL container
+2. Builds and runs Spring Boot with the `test` profile
+3. Waits for `/actuator/health` to return 200
+4. Runs a full authenticated scan — checking for missing security headers, CSRF gaps, injection points, and authentication bypass
 
-ZAP actually runs the application and attacks it. Unlike static tools, it can find runtime issues: missing security headers, CSRF gaps, injection points that only appear when the app is live.
+This catches things that static analysis physically cannot. A header being set to the wrong value. A CSRF token that validates correctly in code but gets stripped by a middleware. Auth that works in unit tests but breaks at the HTTP layer.
 
-The ZAP workflow starts a Postgres container, builds and runs Spring Boot, waits for the health endpoint, then runs a full scan.
+### Layer 5 — pull request policy
 
-### 6. PR enforcement (Danger JS + Reviewdog)
+**Danger JS** enforces policies that can't be expressed as test failures:
 
-Danger JS enforces policies that CI can't easily catch:
+- PRs over 800 lines get a warning ("consider splitting")
+- New service files require matching test files
+- Changes to `SecurityConfig.java` get an explicit review annotation
+- Files named `credentials.json` or `.env` fail the build outright
 
-- PRs over 800 lines get a warning
-- New `application/service/*.java` files require a corresponding test file
-- Changes to `SecurityConfig.java` get an annotation reminding reviewers to audit the diff
-- Any file named `credentials.json` or `.env` fails the build
+**Reviewdog** (which also runs Semgrep inline) posts findings directly on the diff line — not just in the PR comment thread, but on the exact line that triggered the rule.
 
-## The enforcement chain
+### Layer 6 — the production server
 
-The layering matters:
+**Helmet.js** runs in `frontend/server.cjs`, the Express server that serves the built SPA in production. One line sets `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` on every response.
 
-```
-Pre-commit (Husky)  →  catches most things locally, fast
-CI (GitHub Actions) →  catches anything that bypasses pre-commit
-Branch protection   →  won't merge without passing required checks
-Danger JS           →  enforces policy, not just correctness
-```
+Spring Security does the same for API responses — matching the secure header baseline across both servers.
 
-Each layer is bypassable, but only by going through the next layer. `--no-verify` skips pre-commit, but not CI. Pushing directly to main requires bypassing branch protection, which requires admin access.
+## Architecture documentation as a layer
+
+The documentation tools aren't just nice-to-haves — they're part of the enforcement chain.
+
+**Danger JS** fails PRs that add new services or endpoints without updating `docs/architecture/system.md`. **adr-tools** gives every significant decision a numbered record in `docs/adr/`. **Mermaid.js** diagrams render directly in GitHub without any external tooling. **Structurizr Lite** gives the C4-model view for formal architecture review. **D2** handles the complex multi-service diagrams that Mermaid can't layout cleanly.
+
+**GitDiagram** and **GitNexus** are the AI-assistance tools: GitDiagram generates an instant visual overview of the repo structure, GitNexus builds a queryable graph of cross-file dependencies for semantic code navigation.
 
 ## What I actually learned
 
-The most useful insight: security tools generate a lot of noise by default. The work isn't setting them up — it's tuning them. Writing the `.gitleaks.toml` exclusions so you don't false-positive on test fixtures. Writing Semgrep rules tight enough to not fire on comments. Getting ZAP to authenticate before scanning.
+The most useful insight: **security tools generate a lot of noise by default**. The work isn't setting them up — it's tuning them.
+
+Writing the `.gitleaks.toml` exclusions so you don't false-positive on test fixtures. Writing Semgrep rules tight enough to not fire on comments. Getting ZAP to authenticate before scanning so it can actually test protected endpoints.
 
 That tuning is where the real understanding lives. You can only do it when the tool is actually running on something.
+
+The second insight: **layering is multiplicative, not additive**. Each layer isn't just "one more check" — it catches a category of bug that the previous layer is structurally incapable of finding. Gitleaks catches what Semgrep misses. ZAP catches what CodeQL can't reach. Danger JS catches what automated scanners don't understand. Together they cover most of the space.
+
+21 tools for a Gmail cleaner. Every one of them earned its place.
