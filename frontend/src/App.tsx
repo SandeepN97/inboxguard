@@ -1,7 +1,10 @@
+import { Routes, Route, useSearchParams } from 'react-router-dom'
 import { Shield } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { Landing } from '@/pages/Landing'
 import { Dashboard } from '@/pages/Dashboard'
+import { BlogList } from '@/pages/BlogList'
+import { BlogPost } from '@/pages/BlogPost'
 
 function LoadingScreen() {
   return (
@@ -12,11 +15,22 @@ function LoadingScreen() {
   )
 }
 
-export default function App() {
+function AuthGate() {
   const { data: user, isLoading, isError } = useAuth()
-  const isSigningIn = new URLSearchParams(window.location.search).has('signing_in')
+  const [params] = useSearchParams()
+  const isSigningIn = params.has('signing_in')
 
   if (isLoading) return <LoadingScreen />
   if (isError || !user) return <Landing isSigningIn={isSigningIn} />
   return <Dashboard user={user} />
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/blog" element={<BlogList />} />
+      <Route path="/blog/:slug" element={<BlogPost />} />
+      <Route path="*" element={<AuthGate />} />
+    </Routes>
+  )
 }

@@ -1,15 +1,17 @@
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { LayoutDashboard, ListFilter, History, ChevronLeft, Shield } from 'lucide-react'
+import { LayoutDashboard, ListFilter, History, BookOpen, ChevronLeft, Shield } from 'lucide-react'
 import { useUiStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-type NavItem = { label: string; icon: React.ElementType }
+type NavItem = { label: string; icon: React.ElementType; href?: string }
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'Rules', icon: ListFilter },
   { label: 'History', icon: History },
+  { label: 'Blog', icon: BookOpen, href: '/blog' },
 ]
 
 export function Sidebar() {
@@ -23,7 +25,7 @@ export function Sidebar() {
     >
       <div className="flex h-14 items-center border-b px-4">
         <AnimatePresence initial={false}>
-          {!sidebarCollapsed && (
+          {!sidebarCollapsed ? (
             <motion.div
               key="logo-text"
               initial={{ opacity: 0 }}
@@ -35,8 +37,7 @@ export function Sidebar() {
               <Shield className="h-5 w-5 shrink-0 text-primary" />
               <span className="whitespace-nowrap font-semibold tracking-tight">InboxGuard</span>
             </motion.div>
-          )}
-          {sidebarCollapsed && (
+          ) : (
             <motion.div
               key="logo-icon"
               initial={{ opacity: 0 }}
@@ -51,8 +52,8 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 p-2 pt-4">
-        {navItems.map(({ label, icon: Icon }) => (
-          <NavLink key={label} label={label} icon={Icon} collapsed={sidebarCollapsed} />
+        {navItems.map((item) => (
+          <NavLink key={item.label} item={item} collapsed={sidebarCollapsed} />
         ))}
       </nav>
 
@@ -72,42 +73,44 @@ export function Sidebar() {
   )
 }
 
-function NavLink({
-  label,
-  icon: Icon,
-  collapsed,
-}: {
-  label: string
-  icon: React.ElementType
-  collapsed: boolean
-}) {
+function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+  const { label, icon: Icon, href } = item
   const isActive = label === 'Dashboard'
 
-  const inner = (
-    <button
-      className={cn(
-        'flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors',
-        isActive
-          ? 'bg-primary/10 font-medium text-primary'
-          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-        collapsed && 'justify-center'
+  const className = cn(
+    'flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors',
+    isActive
+      ? 'bg-primary/10 font-medium text-primary'
+      : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+    collapsed && 'justify-center'
+  )
+
+  const labelEl = (
+    <AnimatePresence initial={false}>
+      {!collapsed && (
+        <motion.span
+          key="label"
+          initial={{ opacity: 0, width: 0 }}
+          animate={{ opacity: 1, width: 'auto' }}
+          exit={{ opacity: 0, width: 0 }}
+          transition={{ duration: 0.15 }}
+          className="overflow-hidden whitespace-nowrap"
+        >
+          {label}
+        </motion.span>
       )}
-    >
+    </AnimatePresence>
+  )
+
+  const inner = href ? (
+    <Link to={href} className={className}>
       <Icon className="h-4 w-4 shrink-0" />
-      <AnimatePresence initial={false}>
-        {!collapsed && (
-          <motion.span
-            key="label"
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: 'auto' }}
-            exit={{ opacity: 0, width: 0 }}
-            transition={{ duration: 0.15 }}
-            className="overflow-hidden whitespace-nowrap"
-          >
-            {label}
-          </motion.span>
-        )}
-      </AnimatePresence>
+      {labelEl}
+    </Link>
+  ) : (
+    <button className={className}>
+      <Icon className="h-4 w-4 shrink-0" />
+      {labelEl}
     </button>
   )
 

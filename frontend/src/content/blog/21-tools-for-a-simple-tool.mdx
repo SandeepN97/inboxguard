@@ -1,0 +1,106 @@
+export const frontmatter = {
+  title: "21 Tools for a Simple Gmail Cleaner",
+  date: "2026-06-14",
+  tags: ["devsecops", "security", "toolchain", "github-actions"],
+  excerpt:
+    "Why does a personal inbox tool have Trivy, CodeQL, Semgrep, OWASP ZAP, and Danger JS? Because learning security tooling on a low-stakes project is the only way to actually understand it.",
+}
+
+When I listed the tools integrated into InboxGuard, a few people asked if I was joking.
+
+21 tools. For an app that deletes emails.
+
+The answer isn't "this project needs them." The answer is: **I needed to learn them, and this was the safest place to do it.**
+
+## The principle
+
+Security tooling has a steep learning curve. Misconfigured SARIF uploads, false-positive suppression, custom Semgrep rules, OWASP ZAP authentication — these things take time to figure out. The cost of figuring them out on a production system is downtime, incidents, and stressed engineers.
+
+On a Gmail cleanup tool, the cost is: nothing. The perfect environment to build the muscle.
+
+## The six categories
+
+### 1. Vulnerability scanning (Trivy)
+
+Trivy scans three surfaces:
+
+- **Filesystem** — `pom.xml`, `package.json`, `package-lock.json` for known CVEs
+- **Secrets** — hardcoded tokens, API keys, passwords
+- **IaC** — Docker and CI configuration misconfigurations
+
+Output goes to GitHub's Security tab as SARIF. Every dependency bump triggers a re-scan.
+
+### 2. Secret detection (Gitleaks)
+
+Gitleaks runs as a pre-commit hook *and* in CI. The pre-commit hook catches secrets before they ever hit the network. CI catches anything that slipped through `--no-verify`.
+
+InboxGuard has two custom rules in `.gitleaks.toml`:
+
+```toml
+[[rules]]
+id = "gmail-authorized-user-credential"
+regex = '"type":\s*"authorized_user"'
+severity = "CRITICAL"
+
+[[rules]]
+id = "gmail-token-encryption-key-hardcoded"
+regex = 'GMAIL_TOKEN_ENCRYPTION_KEY\s*[=:]\s*[A-Za-z0-9+/]{20,}'
+severity = "CRITICAL"
+```
+
+These are the two secrets that would actually hurt if committed — a downloaded `credentials.json` and a hardcoded AES key.
+
+### 3. Static analysis — semantic (CodeQL)
+
+CodeQL builds a database of the codebase and runs dataflow queries across it. It can find things like: user input that reaches a SQL query without sanitization, even across multiple method calls and class boundaries.
+
+It runs on both Java and TypeScript in a matrix job.
+
+### 4. Static analysis — fast (Semgrep)
+
+Semgrep complements CodeQL. It's faster and easier to write custom rules for. InboxGuard has six project-specific rules:
+
+| Rule | What it catches |
+|---|---|
+| `gmail-import-outside-adapter` | Gmail SDK imported outside `GmailAdapter` |
+| `jpa-in-domain` | JPA annotations on domain classes |
+| `no-hardcoded-encryption-key` | AES key constants in source |
+| `no-printStackTrace` | `e.printStackTrace()` calls |
+| `no-hardcoded-api-url` | `http://localhost` in production code |
+| `no-console-log-in-src` | `console.log` in frontend src |
+
+Semgrep also runs Reviewdog, which posts inline PR comments for findings rather than just failing the build.
+
+### 5. Dynamic analysis (OWASP ZAP)
+
+ZAP actually runs the application and attacks it. Unlike static tools, it can find runtime issues: missing security headers, CSRF gaps, injection points that only appear when the app is live.
+
+The ZAP workflow starts a Postgres container, builds and runs Spring Boot, waits for the health endpoint, then runs a full scan.
+
+### 6. PR enforcement (Danger JS + Reviewdog)
+
+Danger JS enforces policies that CI can't easily catch:
+
+- PRs over 800 lines get a warning
+- New `application/service/*.java` files require a corresponding test file
+- Changes to `SecurityConfig.java` get an annotation reminding reviewers to audit the diff
+- Any file named `credentials.json` or `.env` fails the build
+
+## The enforcement chain
+
+The layering matters:
+
+```
+Pre-commit (Husky)  →  catches most things locally, fast
+CI (GitHub Actions) →  catches anything that bypasses pre-commit
+Branch protection   →  won't merge without passing required checks
+Danger JS           →  enforces policy, not just correctness
+```
+
+Each layer is bypassable, but only by going through the next layer. `--no-verify` skips pre-commit, but not CI. Pushing directly to main requires bypassing branch protection, which requires admin access.
+
+## What I actually learned
+
+The most useful insight: security tools generate a lot of noise by default. The work isn't setting them up — it's tuning them. Writing the `.gitleaks.toml` exclusions so you don't false-positive on test fixtures. Writing Semgrep rules tight enough to not fire on comments. Getting ZAP to authenticate before scanning.
+
+That tuning is where the real understanding lives. You can only do it when the tool is actually running on something.

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { Shield, ArrowRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -48,6 +49,11 @@ export function Landing({ isSigningIn = false }: { isSigningIn?: boolean }) {
             <Shield className="h-5 w-5 text-primary" />
             <span className="font-semibold tracking-tight">InboxGuard</span>
           </div>
+          <nav className="hidden items-center gap-6 sm:flex">
+            <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground">
+              Blog
+            </Link>
+          </nav>
           <Button size="sm" onClick={handleSignIn} disabled={isSigningIn}>
             {isSigningIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
             Sign in with Google

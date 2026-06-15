@@ -1,0 +1,111 @@
+export const frontmatter = {
+  title: "Day 1: Zero to Full CI/CD Pipeline",
+  date: "2026-06-14",
+  tags: ["progress", "ci-cd", "husky", "github-actions", "lessons"],
+  excerpt:
+    "What got built in the first session: hexagonal scaffold, five GitHub Actions workflows, a pre-commit hook that rejects secrets — and four commit failures before getting it right.",
+}
+
+The goal for day one was simple: get the skeleton standing. A Spring Boot backend with the hexagonal package structure, a React frontend, and the CI/CD pipeline running. Commit it, push it, have GitHub turn green.
+
+Four pre-commit failures later, the commit landed. Here's what I learned.
+
+## What got built
+
+**Backend skeleton** — Spring Boot 3.3, Java 21, packages laid out by hexagonal layer:
+
+```
+com.inboxguard/
+  domain/            ← pure Java, no frameworks
+  application/
+    port/in/         ← inbound use-case interfaces
+    port/out/        ← outbound port interfaces
+    service/         ← use-case implementations
+  infrastructure/
+    gmail/           ← GmailAdapter (only Gmail SDK here)
+    persistence/     ← Spring Data repositories
+    config/          ← SecurityConfig, etc.
+  web/               ← REST controllers
+```
+
+**ArchUnit tests** — six rules that enforce the dependency direction at test time. The most important: `gmailApiOnlyInAdapter()`. If anyone imports `com.google.api.services.gmail.*` outside of `GmailAdapter`, the test suite fails.
+
+**Five GitHub Actions workflows:**
+
+| Workflow | What it does |
+|---|---|
+| `ci.yml` | `mvn verify` + `tsc` + ESLint + Prettier |
+| `security.yml` | Gitleaks + Trivy SARIF + Semgrep + Reviewdog |
+| `codeql.yml` | CodeQL on Java + TypeScript |
+| `zap.yml` | OWASP ZAP full scan against running app |
+| `danger.yml` | PR policy enforcement |
+
+**Pre-commit hooks** (Husky v9) — lint-staged runs ESLint + Prettier on changed files, then Gitleaks scans staged content for secrets.
+
+**Flyway migrations** — V1 creates four tables: `sender_rules`, `cleanup_runs`, `cleanup_run_results`, `oauth_tokens`. H2 in PostgreSQL compatibility mode means the same SQL runs in dev and prod.
+
+## The four failures
+
+### Failure 1: Husky v8 format in v9
+
+The generated hook looked like this:
+
+```bash
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+npx lint-staged
+```
+
+Husky v9 dropped the shebang and source line entirely. Running the hook printed:
+
+```
+[WARN] `INIT_CWD` is not set
+[WARN] Please remove the following two lines from .husky/pre-commit:
+  #!/usr/bin/env sh
+  . $(dirname -- "$0")/_/husky.sh
+```
+
+Fix: delete both lines. Every Husky v9 hook is just the commands you want to run, nothing else.
+
+### Failure 2: prettier-plugin-tailwindcss not found
+
+```
+Error: Cannot find package 'prettier-plugin-tailwindcss'
+imported from /Users/.../inboxguard/noop.js
+```
+
+Root cause: lint-staged's `**/*.{json,md,yml,yaml}` pattern matched `frontend/*.json` files. Those files use `frontend/.prettierrc`, which lists `prettier-plugin-tailwindcss`. But Prettier resolves plugins from the *root* working directory, where the plugin wasn't installed.
+
+Fix: `npm install --save-dev prettier-plugin-tailwindcss` at the root level, mirroring what's already in `frontend/package.json`.
+
+### Failure 3: npx downloaded ESLint 10 instead of 9
+
+The lint-staged config was:
+
+```json
+"frontend/src/**/*.{ts,tsx}": ["npx eslint --fix"]
+```
+
+When run from the monorepo root, `npx eslint` didn't find `frontend/node_modules/.bin/eslint` and installed the latest version — ESLint 10 — which has a different config format and failed immediately.
+
+Fix: use the direct binary path so there's no resolution ambiguity:
+
+```json
+"bash -c 'cd frontend && node_modules/.bin/eslint --fix --max-warnings 0 \"$@\"' --"
+```
+
+### Failure 4: CSS files going through ESLint
+
+Splitting the pattern to `*.{ts,tsx,css}` meant lint-staged passed `.css` files to ESLint, which has no CSS config and emitted a "File ignored" warning. With `--max-warnings 0`, one warning fails the hook.
+
+Fix: separate patterns — TypeScript goes to ESLint + Prettier, CSS goes to Prettier only.
+
+## What's next
+
+Day 1 covers infrastructure. Day 2 is domain logic: the `CleanupService`, the Gmail batch API integration, and Spring Retry with exponential backoff for Gmail 429 rate limits.
+
+The frontend scaffold is up but the backend doesn't respond to anything yet. That changes tomorrow.
+
+---
+
+*All code is at [github.com/SandeepN97/inboxguard](https://github.com/SandeepN97/inboxguard).*

@@ -1,9 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import mdx from "@mdx-js/rollup";
+import remarkGfm from "remark-gfm";
 import path from "path";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    { enforce: "pre", ...mdx({ remarkPlugins: [remarkGfm] }) },
+    react({ include: /\.(jsx|js|mdx|md|tsx|ts)$/ }),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

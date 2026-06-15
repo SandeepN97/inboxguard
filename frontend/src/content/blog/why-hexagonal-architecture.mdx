@@ -1,0 +1,95 @@
+export const frontmatter = {
+  title: "Why Hexagonal Architecture for a Gmail Cleanup Tool?",
+  date: "2026-06-14",
+  tags: ["architecture", "java", "hexagonal", "ports-and-adapters"],
+  excerpt:
+    "The domain problem is trivially simple. The architecture is deliberately not. Here's why ports and adapters still makes sense for a tiny tool — and what it actually teaches you.",
+}
+
+The first question anyone asks when they see this project is: *why on earth does a personal inbox cleaner need hexagonal architecture?*
+
+The honest answer: it doesn't. But that's exactly why it's here.
+
+## What hexagonal architecture actually means
+
+Ports and adapters — the original name — comes from Alistair Cockburn's 2005 paper. The core idea is simple:
+
+> Your application is a hexagon. The inside contains business logic. The outside contains everything else — databases, APIs, UIs. Adapters plug into ports on the hexagon wall.
+
+In practice this means one rule that everything else follows from:
+
+**Dependencies point inward. The domain depends on nothing.**
+
+```
+web/           →  application/port/in/   (calls use-cases via interfaces)
+infrastructure →  application/port/out/  (implements outbound ports)
+application/   →  domain/               (uses domain models)
+domain/        →  nothing               (pure Java, zero framework imports)
+```
+
+## How this maps to InboxGuard
+
+InboxGuard's domain is embarrassingly small. There are really only two domain concepts:
+
+- A **SenderRule** — a sender address that should be cleaned
+- A **CleanupRun** — a record of what was done and when
+
+The domain doesn't know about Gmail. It doesn't know about Postgres. It doesn't know about Spring. It's just Java records and a few interfaces:
+
+```java
+// domain — pure Java, no imports from Spring, JPA, or Google
+public record SenderRule(UUID id, String sender, boolean active) {}
+
+// application/port/out — interface the domain uses
+public interface GmailPort {
+    List<String> findMessageIdsBySender(String sender);
+    void trashMessages(List<String> messageIds);
+}
+
+// infrastructure/gmail — the only place the Gmail SDK appears
+public class GmailAdapter implements GmailPort {
+    private final Gmail gmail; // com.google.api.services.gmail.Gmail
+    // ...
+}
+```
+
+The `GmailAdapter` is the only file in the entire codebase that imports `com.google.api.services.gmail.*`. Not because of discipline — because **ArchUnit enforces it at test time**:
+
+```java
+@Test
+void gmailApiOnlyInAdapter() {
+    noClasses()
+        .that().resideOutsideOfPackage("..infrastructure.gmail..")
+        .should().dependOnClassesThat()
+        .resideInAPackage("com.google.api.services.gmail..")
+        .check(importedClasses);
+}
+```
+
+If you accidentally import the Gmail client in a service class, the build fails. The rule is in code, not in a wiki.
+
+## The real benefit: swappability you'll actually use
+
+When I want to write a unit test for `CleanupService`, I don't need a live Gmail connection. I inject a `GmailPort` mock:
+
+```java
+@Test
+void dryRunDoesNotCallTrash() {
+    var gmail = mock(GmailPort.class);
+    var service = new CleanupService(gmail, rulesRepo);
+    
+    service.runCleanup(CleanupMode.DRY_RUN);
+    
+    verify(gmail, never()).trashMessages(any());
+}
+```
+
+The service doesn't know or care whether `GmailPort` is backed by the real Gmail API or a mock. That's the point.
+
+## Honest trade-offs
+
+For a tool this size, hexagonal architecture adds real boilerplate. There are interfaces that have exactly one implementation. There are packages that contain two files. A straightforward Spring MVC app with repositories would ship faster.
+
+But the goal here isn't to ship fastest. It's to practice the architecture on a problem simple enough to fully understand, before applying it to systems complex enough to actually need it. The constraint is the lesson.
+
+When the domain logic fits in a single class, it's easy to see where the boundary is and why it matters. When you're maintaining a 200-class codebase, that clarity becomes survival.
