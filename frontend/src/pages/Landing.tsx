@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { Shield, Loader2, Lock, Eye, CheckCircle2 } from 'lucide-react'
+import { Shield, Loader2, Lock, Eye } from 'lucide-react'
 import { InboxDemo } from '@/components/landing/InboxDemo'
 import { Steps } from '@/components/landing/Steps'
 import { FeatureCards } from '@/components/landing/FeatureCards'
@@ -161,32 +161,24 @@ export function Landing({ isSigningIn = false }: { isSigningIn?: boolean }) {
       <Steps />
       <FeatureCards />
 
-      {/* Bottom CTA */}
-      <section className="py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.4 }}
-          className="mx-auto max-w-2xl px-6 text-center"
-        >
-          <h2 className="text-3xl font-bold tracking-tight">Ready for a clean inbox?</h2>
-          <p className="mt-3 text-muted-foreground">
-            Connect in 30 seconds. Start with a dry run — zero risk.
-          </p>
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <GoogleSignInButton
-              onClick={handleSignIn}
-              loading={isSigningIn}
-              label="Get started with Google"
-            />
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              Free forever · no credit card needed
-            </div>
+      {/* Bottom CTA strip */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4 }}
+        className="border-t"
+      >
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
+          <div>
+            <p className="font-medium">Your inbox can be quiet too.</p>
+            <p className="text-sm text-muted-foreground">
+              Connect in 30 seconds · dry run first · zero risk.
+            </p>
           </div>
-        </motion.div>
-      </section>
+          <GoogleSignInButton onClick={handleSignIn} loading={isSigningIn} label="Get started" />
+        </div>
+      </motion.div>
 
       <footer className="border-t py-8">
         <div className="mx-auto max-w-6xl px-6 text-center text-xs text-muted-foreground">
