@@ -1,0 +1,230 @@
+export const frontmatter = {
+  title: "InboxGuard Architecture: From Browser to Gmail",
+  date: "2026-06-14",
+  tags: ["architecture", "mermaid", "c4", "hexagonal", "devsecops"],
+  excerpt:
+    "Four diagrams tracing the full stack: system context, container layout, hexagonal backend layers, and the cleanup run sequence — all as living Mermaid diagrams that update with the code.",
+}
+
+import { Mermaid } from "@/components/blog/Mermaid"
+
+Good architecture docs answer four questions at increasing zoom levels:
+
+1. **Who uses the system and what external things does it touch?** (System Context)
+2. **What deployable pieces make it up?** (Container)
+3. **How are the backend layers organized inside one container?** (Component / Hexagonal)
+4. **What happens at runtime for the main use case?** (Sequence)
+
+These are Mermaid diagrams — they live next to the code in `docs/architecture/system.md` and render natively on GitHub. The same source is embedded here.
+
+---
+
+## 1 — System Context
+
+The highest zoom level. Ignore implementation; just show who talks to what.
+
+<Mermaid
+  caption="C4 System Context — one user, one system, two external dependencies"
+  chart={`
+C4Context
+  title System Context — InboxGuard
+
+  Person(user, "Admin User", "Single authorized Gmail account owner")
+
+  System_Boundary(ig, "InboxGuard") {
+    System(frontend, "React SPA", "Dashboard: manage rules, trigger cleanup, view history")
+    System(backend, "Spring Boot API", "Business logic, Gmail integration, rule evaluation")
+  }
+
+  System_Ext(gmail, "Gmail API", "Message search + modify via OAuth2")
+  System_Ext(postgres, "PostgreSQL", "sender_rules, cleanup_runs, oauth_tokens")
+
+  Rel(user, frontend, "Uses", "HTTPS")
+  Rel(frontend, backend, "REST API", "HTTPS / JSON")
+  Rel(backend, gmail, "Search + archive messages", "HTTPS / OAuth2")
+  Rel(backend, postgres, "Read / write", "JDBC")
+`}
+/>
+
+Key decisions visible at this level:
+- **Single user** — no multi-tenancy, no auth hierarchy, no team model
+- **Gmail is external** — the system never stores email content, only message IDs and metadata
+- **PostgreSQL is external** — rules and run history survive restarts
+
+---
+
+## 2 — Container Diagram
+
+One level in. Shows the deployable units and the protocols between them.
+
+<Mermaid
+  caption="C4 Container — React SPA + Spring Boot API + PostgreSQL + Gmail API"
+  chart={`
+C4Container
+  title Container Diagram — InboxGuard
+
+  Person(user, "Admin User")
+
+  Container(spa, "React SPA", "React 18 · TypeScript · Vite", "Served by Express + Helmet.js in prod; Vite dev server locally")
+  Container(api, "Spring Boot API", "Java 21 · Spring Boot 3.3", "Hexagonal architecture · virtual threads · Spring Security")
+  ContainerDb(db, "PostgreSQL 16", "Relational DB", "sender_rules · cleanup_runs · cleanup_run_results · oauth_tokens")
+  System_Ext(gmail, "Gmail API", "Google")
+
+  Rel(user, spa, "HTTPS")
+  Rel(spa, api, "REST /api/**", "HTTPS · XSRF-TOKEN cookie")
+  Rel(api, db, "JDBC / Flyway", "TCP 5432")
+  Rel(api, gmail, "OAuth2 Bearer", "HTTPS 443")
+`}
+/>
+
+Security decisions visible here:
+- **XSRF-TOKEN cookie** — Spring Security's `CookieCsrfTokenRepository`; Axios echoes it as `X-XSRF-TOKEN` header on every mutating request
+- **No email content stored** — `oauth_tokens` stores only the AES-256-GCM encrypted refresh token
+- **Flyway** — schema migrations are versioned and auditable, never auto-DDL in prod
+
+---
+
+## 3 — Hexagonal Backend Architecture
+
+Inside the Spring Boot container. The dependency rule: everything points inward toward the domain.
+
+<Mermaid
+  caption="Hexagonal (Ports & Adapters) — dependency direction enforced by ArchUnit at test time"
+  chart={`
+flowchart TB
+  subgraph WEB["web/ — REST layer"]
+    direction LR
+    CTRL["controllers/\nSenderRuleController\nCleanupRunController\nAuthController"]
+    DTO["dto/\nRequest & Response records"]
+  end
+
+  subgraph APP["application/ — use cases"]
+    direction TB
+    IN["port/in/\nManageSenderRulesUseCase\nRunCleanupUseCase"]
+    SVC["service/\nSenderRuleService\nCleanupRunService"]
+    OUT["port/out/\nSenderRuleRepository\nCleanupRunRepository\nGmailPort · TokenRepository"]
+  end
+
+  subgraph DOMAIN["domain/ — pure Java, no framework imports"]
+    MODEL["model/\nSenderRule · CleanupRun\nCleanupRunResult\nCleanupMode · CleanupStatus"]
+  end
+
+  subgraph INFRA["infrastructure/ — adapters"]
+    direction LR
+    GMAIL["gmail/\nGmailAdapter\nGmailClientFactory\nTokenEncryptionService"]
+    PERSIST["persistence/\nJPA entities\nSpring Data repos\nPersistence adapters"]
+    CFG["config/\nSecurityConfig\nGmailConfig"]
+  end
+
+  CTRL -->|"calls via interface"| IN
+  SVC -->|"implements"| IN
+  SVC -->|"depends on"| OUT
+  SVC -->|"uses"| MODEL
+  GMAIL -->|"implements"| OUT
+  PERSIST -->|"implements"| OUT
+  DTO -.->|"maps to/from"| MODEL
+
+  style DOMAIN fill:#e8f5e9,stroke:#388e3c,color:#1b5e20
+  style APP fill:#e3f2fd,stroke:#1565c0,color:#0d3c7a
+  style WEB fill:#fff8e1,stroke:#f9a825,color:#5c3f00
+  style INFRA fill:#fce4ec,stroke:#c62828,color:#7f0000
+`}
+/>
+
+The key invariants ArchUnit enforces:
+- `..domain..` → imports nothing from `..infrastructure..`, `..web..`, Spring, JPA, or Google
+- `..application..` → imports nothing from `..infrastructure..` or `..web..`
+- `com.google.api.services.gmail.*` → only appears in `..infrastructure.gmail..`
+- `jakarta.persistence.*` → never appears in `..domain..`
+
+These run as tests in CI. A violation breaks the build.
+
+---
+
+## 4 — Cleanup Run Sequence
+
+The main use case at runtime. `POST /api/runs` returns immediately (202); the Gmail I/O runs on a virtual thread.
+
+<Mermaid
+  caption="Sequence — async cleanup run using Project Loom virtual threads"
+  chart={`
+sequenceDiagram
+  actor U as Admin
+  participant SPA as React SPA
+  participant API as Spring Boot
+  participant VT as Virtual Thread
+  participant DB as PostgreSQL
+  participant G as Gmail API
+
+  U->>SPA: Click "Run Cleanup" (LIVE)
+  SPA->>API: POST /api/runs {mode: LIVE}
+  API->>DB: INSERT cleanup_runs status=RUNNING
+  API->>VT: Thread.ofVirtual().start()
+  API-->>SPA: 202 Accepted {id, status: RUNNING}
+
+  loop poll every 3 s while RUNNING
+    SPA->>API: GET /api/runs/{id}
+    API-->>SPA: {status: RUNNING, emailsProcessed: 0}
+  end
+
+  loop for each active SenderRule
+    VT->>G: messages.list q=from:sender
+    G-->>VT: message IDs
+    VT->>G: messages.batchModify remove INBOX label
+    G-->>VT: 200 OK
+    VT->>DB: INSERT cleanup_run_results
+  end
+
+  VT->>DB: UPDATE cleanup_runs status=COMPLETED
+  SPA->>API: GET /api/runs/{id}
+  API-->>SPA: {status: COMPLETED, emailsProcessed: 142, emailsDeleted: 142}
+  SPA-->>U: Show results
+`}
+/>
+
+Why virtual threads here?
+
+The Gmail API calls are blocking I/O — each `messages.list` + `messages.batchModify` pair waits for an HTTP round trip. With Project Loom, Spring Boot parks the virtual thread during the wait and reuses the carrier thread for other work. No reactive programming, no callback hell, no `CompletableFuture` chains — just blocking code that scales.
+
+---
+
+## 5 — OAuth2 + Token Storage Flow
+
+How the Gmail refresh token gets stored securely on first login.
+
+<Mermaid
+  caption="OAuth2 flow — refresh token encrypted with AES-256-GCM before DB storage"
+  chart={`
+sequenceDiagram
+  actor U as Admin
+  participant SPA as React SPA
+  participant API as Spring Boot
+  participant G as Google OAuth2
+  participant ENC as TokenEncryptionService
+  participant DB as PostgreSQL
+
+  U->>SPA: Click "Continue with Google"
+  SPA->>API: GET /api/auth/google
+  API-->>SPA: 302 → /oauth2/authorization/google
+  SPA->>G: Authorization request (scope: gmail.modify)
+  G-->>U: Consent screen
+  U->>G: Approve
+  G-->>API: Authorization code + refresh token
+  API->>ENC: encrypt(refreshToken, AES-256-GCM key)
+  ENC-->>API: base64(nonce ‖ ciphertext ‖ tag)
+  API->>DB: INSERT oauth_tokens (encrypted_token)
+  API-->>SPA: Session cookie set, redirect to /?signing_in=1
+  SPA->>API: GET /api/auth/me
+  API-->>SPA: {email, name, picture}
+`}
+/>
+
+The AES-256-GCM key (`GMAIL_TOKEN_ENCRYPTION_KEY`) is a 32-byte secret injected at runtime via environment variable. It is never stored in source, never in the database, never logged. If it's absent, the application refuses to start.
+
+---
+
+## Living diagrams
+
+These diagrams are committed in `docs/architecture/system.md` using the same Mermaid source. GitHub renders them natively on every PR — reviewers see the updated architecture diagram alongside the code diff, not a stale screenshot in a wiki.
+
+That's the point of diagrams-as-code: the diagram and the code drift together, or they don't drift at all.
