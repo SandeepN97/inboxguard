@@ -15,10 +15,22 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  # Override OAuth2 client for dev — real credentials not required when app.dev-auth=true
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:dev-placeholder}
+            client-secret: ${GOOGLE_CLIENT_SECRET:dev-placeholder}
 
 gmail:
-  credentials-path: ${GMAIL_CREDENTIALS_PATH:./credentials.json}
-  token-encryption-key: ${GMAIL_TOKEN_ENCRYPTION_KEY}
+  client-id: ${GOOGLE_CLIENT_ID:dev-placeholder}
+  client-secret: ${GOOGLE_CLIENT_SECRET:dev-placeholder}
+  token-encryption-key: ${GMAIL_TOKEN_ENCRYPTION_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+
+app:
+  dev-auth: true # Permit all requests; /api/auth/me returns mock user
 
 logging:
   level:

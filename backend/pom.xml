@@ -18,7 +18,7 @@
 
   <properties>
     <java.version>21</java.version>
-    <google-api-gmail.version>1-rev20240520-2.0.0</google-api-gmail.version>
+    <google-api-gmail.version>v1-rev20240520-2.0.0</google-api-gmail.version>
     <google-auth.version>1.24.0</google-auth.version>
     <archunit.version>1.3.0</archunit.version>
   </properties>
